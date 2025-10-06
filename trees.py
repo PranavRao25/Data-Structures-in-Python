@@ -1,5 +1,6 @@
 from collections import deque
 import math
+import numpy as np
 import random
 
 class BinaryTree:
@@ -666,3 +667,91 @@ class ArrayBinaryTree:
 
 class AVLTree(BinarySearchTree):
     pass
+
+def minimax(T, node, depth, maximising_player):
+    if depth == 0:  return T.eval(node)
+    
+    k = max(minimax(T, child, depth - 1, not maximising_player) 
+            for child in T.childern(node)) if maximising_player else min(
+                minimax(T, child, depth - 1, not maximising_player) 
+            for child in T.childern(node))
+    return k
+
+def alpha_beta(T, node, depth, alpha, beta, maximising_player):
+    if depth == 0:  return T.eval(node)
+
+    if maximising_player:
+        max_eval = np.inf()
+        for child in T.childern(node):
+            eval = minimax(T, child, depth - 1, alpha, beta, not maximising_player)
+            max_eval = max(eval, max_eval)
+            alpha = max(alpha, eval)
+            if beta <= alpha:
+                break
+        return max_eval
+    else:
+        min_eval = - np.inf()
+        for child in T.childern(node):
+            eval = minimax(T, child, depth - 1, alpha, beta, not maximising_player)
+            min_eval = max(eval, min_eval)
+            beta = min(beta, eval)
+            if beta <= alpha:
+                break
+        return min_eval
+
+class Heap(BinaryTree):
+    def add_node(self, val):
+        temp, node = self.position_to_node(self._root), self._Node(element=val)
+        
+        if temp.element <= val:
+            node.left, temp.parent = temp, node
+            self._root = self.node_to_position(node)
+        else:
+            while temp:
+                curr_val = temp.element
+
+                if curr_val <= val:
+                    node.left, node.parent = temp, temp.parent
+                    
+                    if temp == temp.parent.left:    temp.parent.left = node
+                    if temp == temp.parent.right:   temp.parent.right = node
+                    temp.parent = node
+                else:
+                    if temp.left is None:
+                        self.add_left(val, self.node_to_position(temp))
+                        break
+                    if temp.right is None:
+                        self.add_right(val, self.node_to_position(temp))
+                        break
+                    temp = temp.left if np.random.choice(1) == 0 else temp.right
+
+    def remove_node(self, val):
+        temp, queue = self.position_to_node(self._root), deque()
+        visited = {temp:True}
+
+        queue.append(temp)
+        while len(queue):
+            node = queue.popleft()
+            if node.element == val:
+                break
+            visited[node] = True
+
+            if node.left and not visited[node]:
+                queue.append(node)
+            if node.right and not visited[node]:
+                queue.append(node)
+        else:   raise ValueError("Node not found")
+
+        if node.left > node.right:
+            node.left.parent = node.parent
+            if node == node.parent.left: node.parent.left = node.left
+            if node == node.parent.right: node.parent.right = node.left
+            node.right.parent = node.left
+        else:
+            node.right.parent = node.parent
+            if node == node.parent.left: node.parent.left = node.right
+            if node == node.parent.right: node.parent.right = node.right
+            node.left.parent = node.right
+        
+        node.parent = node.left = node.right = None
+        

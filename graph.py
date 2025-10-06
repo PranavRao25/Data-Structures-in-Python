@@ -3,19 +3,27 @@ from collections import deque
 import random
 import numpy as np
 import math
+import heapq
 
 class Vertex:
     def __init__(self, u):
         self.value = u
+    
+    def __eq__(self, vertex):
+        return self.value == vertex.value
+
+    def __hash__(self):
+        return self.value
 
 class Edge:
-    def __init__(self, u : Vertex, v: Vertex):
+    def __init__(self, u, v, w):
         if not isinstance(u, Vertex):
             u = Vertex(u)
         if not isinstance(v, Vertex):
             v = Vertex(v)
         
         self.point1, self.point2 = u, v
+        self.weight = w
 
     def endpoints(self):
         return (self.point1, self.point2)
@@ -42,6 +50,10 @@ class AdjacencyStructure(ABC):
         pass
     
     @abstractmethod
+    def add_vertex(self, v: Vertex):
+        pass
+
+    @abstractmethod
     def remove_vertex(self, v : Vertex):
         pass
 
@@ -62,7 +74,7 @@ class AdjacencyList(AdjacencyStructure):
         self.map = dict()
     
     def add_edge(self, e: Edge):
-        u, v = e
+        u, v = e.endpoints()
         if u not in self.map:   self.map[u] = [v]
         else:   self.map[u].append(v)
 
@@ -71,13 +83,18 @@ class AdjacencyList(AdjacencyStructure):
             else:   self.map[v].append(u)
     
     def remove_edge(self, e: Edge):
-        u, v = e
+        u, v = e.endpoints()
         if u not in self.map:   raise ValueError("Edge doesn't exist")
         else:   self.map[u].remove(v)
 
         if isinstance(e, UndirectedEdge):
             if v not in self.map:   raise ValueError("Edge doesn't exist")
         else:   self.map[v].remove(u)
+    
+    def add_vertex(self, v: Vertex):
+        if not isinstance(v, Vertex):   v = Vertex(v)
+
+        self.map[v] = []
     
     def remove_vertex(self, v : Vertex):
         if v not in self.map:   raise ValueError("Vertex doesn't exist")
@@ -102,7 +119,7 @@ class AdjacencyMatrix(AdjacencyStructure):
         self.vertices = []
     
     def add_edge(self, e: Edge):
-        u, v = e
+        u, v = e.endpoints()
         if u not in self.vertices:
             self.vertices.append(u)
             self.mat = np.append(self.mat, np.zeros((len(self.vertices), 1)), axis=1)
@@ -117,8 +134,13 @@ class AdjacencyMatrix(AdjacencyStructure):
         if isinstance(e, UndirectedEdge):
             self.mat[self.vertices.index(v), self.vertices.index(u)] = 1
     
+    def add_vertex(self, v: Vertex):
+        self.vertices.append(v)
+        self.mat = np.append(self.mat, np.zeros((len(self.vertices), 1)), axis=1)
+        self.mat = np.append(self.mat, np.zeros((len(self.vertices), 1)), axis=0)
+    
     def remove_edge(self, e : Edge):
-        u, v = e
+        u, v = e.endpoints()
         if u not in self.vertices or v not in self.vertices: raise Exception("Edge not present")
 
         self.mat[self.vertices.index(u), self.vertices.index(v)] = 0
@@ -126,6 +148,9 @@ class AdjacencyMatrix(AdjacencyStructure):
         if isinstance(e, UndirectedEdge):
             self.mat[self.vertices.index(v), self.vertices.index(u)] = 0
 
+    def add_vertex(self, v: Vertex):
+        pass
+    
     def remove_vertex(self, v : Vertex):
         if v not in self.vertices: raise Exception("Vertex doesn't exist")
 
@@ -156,72 +181,79 @@ class Graph:
     def vertex_count(self):
         return len(self.vertices)
 
+    def weight(self, u, v):
+        for edge in self.edges:
+            if (u, v) == edge.endpoints():
+                return edge.weight
+
     def edge_count(self):
         return len(self.edges)
 
-    def out_degree(self, v: Vertex, out = True):
-        return self.adj_struct.out_degree(v)
+    def out_degree(self, v, out = True):
+        return self.adj_struct.out_degree(Vertex(v))
         # return self.adj_mat.out_degree(v)
 
-    def in_degree(self, v: Vertex, inc = True):
-        return self.adj_struct.out_degree(v)
+    def in_degree(self, v, inc = True):
+        return self.adj_struct.out_degree(Vertex(v))
         # return self.adj_mat.out_degree(v)
 
-    def insert_vertex(self, v : Vertex = None):
-        self.vertices.append(v)
+    def insert_vertex(self, v):
+        self.vertices.append(Vertex(v))
+        self.adj_struct.add_vertex(Vertex(v))
 
-    def insert_edge(self, u : Vertex, v : Vertex, x = None):
-        e = Edge(u, v)
+    def insert_edge(self, u, v, x = None):
+        e = Edge(u, v, x)
         self.edges.append(e)
         self.adj_struct.add_edge(e)
 
-    def delete_vertex(self, v: Vertex):
-        self.vertices.remove(v)
-        self.adj_struct.remove_vertex(v)
+    def delete_vertex(self, v):
+        self.vertices.remove(Vertex(v))
+        self.adj_struct.remove_vertex(Vertex(v))
 
     def delete_edge(self, e: Edge):
         self.edges.remove(e)
         self.adj_struct.remove_edge(e)
     
-    def neighbors(self, v : Vertex):
-        return self.adj_struct.neighbors(v)
+    def neighbors(self, v):
+        if not isinstance(v, Vertex):   return self.adj_struct.neighbors(Vertex(v))
+        else:   return self.adj_struct.neighbors(v)
 
-def bfs(G : Graph, u, visit):
+def bfs(G : Graph, v, visit):
     q = deque()
-    visited = [False] * len(G.vertex_count())
-    q.append(u)
+    visited = [False] * G.vertex_count()
+    q.append(v)
 
     while len(q):
         vertex = q.popleft()
-        visited[vertex] = True
-        visit(vertex)
+        visited[G.vertices.index(Vertex(vertex))] = True
+        visit(v, vertex)
 
         for u in G.neighbors(vertex):
-            if not visited[u]:
-                q.append(u)
+            if not visited[G.vertices.index(u)]:
+                q.append(u.value)
 
-def dfs(G : Graph, u,  visit):
+def dfs(G : Graph, v,  visit):
     q = deque()
-    visited = [False] * len(G.vertex_count())
-    q.append(u)
+    visited = [False] * G.vertex_count()
+    q.append(v)
 
     while len(q):
         vertex = q.popleft()
-        visited[vertex] = True
-        visit(vertex)
+        visited[G.vertices.index(Vertex(vertex))] = True
+        visit(v, vertex)
 
         for u in G.neighbors(vertex):
-            if not visited[u]:
-                q.appendleft(u)
+            if not visited[G.vertices.index(u)]:
+                q.appendleft(u.value)
 
 def forests(G : Graph):
-    def visit(vertex):
-        connected_components[G.vertices.index[vertex]].append(vertex)
+    def visit(node, vertex):
+        connected_components[G.vertices.index(Vertex(node))].append(vertex)
 
-    connected_components = [[] * len(G.vertices)]
+    connected_components = [[]] * G.vertex_count()
 
     for v in G.vertices:
-        dfs(G, v, visit)
+        dfs(G, v.value, visit)
     return connected_components
 
 def floyd_warshall(G):
@@ -232,3 +264,29 @@ def topological_ordering(G):
 
 def bellman_ford(G):
     pass
+
+def all_source_shortest_path(G : Graph, u, dist):
+    d = {v: np.inf for v in G.vertices}
+    d[Vertex(u)] = 0
+
+    queue = [], visited = dict()
+    heapq.heappush(queue, (d[Vertex(u)], Vertex(u)))
+
+    while len(queue):
+        d[Vertex(vertex)], vertex = heapq.heappop(queue)
+        visited[vertex] = True
+        
+        for child in G.neighbors(vertex):
+            if d[vertex] + dist(vertex, child) < d[child]:
+                d[child] = d[vertex] + dist(vertex, child)
+                heapq.heappush((d[child], child))
+    return d
+
+def djikstra(G : Graph, u):
+    dist = lambda u, v: G.weight(u, v)
+    return all_source_shortest_path(G, u, dist)
+
+def a_star(G, u, v):
+    heuristic = lambda u, v: np.abs(u - v)
+    dist = lambda u, v: G.weight(u, v) + heuristic(u, v)
+    return all_source_shortest_path(G, u, dist)

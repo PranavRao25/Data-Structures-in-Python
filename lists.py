@@ -193,10 +193,6 @@ def reverse_list(L):
             break
     return rev
 
-# S : T->
-# t1: T->
-# t2: T-> 0 1 2 3 4 5 6 7 8 9
-
 def reverse_stack(S):
     # reverse the stack in place
     t1, t2 = Stack(), Stack()
@@ -468,11 +464,9 @@ class ListNode:
     def __eq__(self, node):
         return self.val == node.val
 
-
 def type_check(value):
     if not isinstance(value, int):
             raise TypeError("Only Integer Linked Lists allowed")
-
 
 class LinkedList(ListNode):
     def __init__(self, head_value):
@@ -575,3 +569,21 @@ def swap_nodes(ll, a, b):
     p_a._next, p_b._next = n, m
     m._next, n._next = n._next, m._next
 
+class PriorityQueue(Queue):
+    def upheap(self, pos):
+        if pos > self.curr_size or pos < 1: raise IndexError("Out of Bounds")
+
+        parent = (pos - 1) // 2
+        if self.queue[pos] > self.queue[parent]:
+            self.queue[pos], self.queue[parent] = self.queue[parent], self.queue[pos]
+            self.upheap(parent)
+
+    def enqueue(self, val):
+        super().enqueue(val)
+        if self.curr_size > 1:
+            self.upheap(self.curr_size - 1)
+    
+    def dequeue(self):
+        k = super().dequeue()
+        self.upheap(self.curr_size - 1)
+        return k
