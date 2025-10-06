@@ -259,8 +259,21 @@ def forests(G : Graph):
 def floyd_warshall(G):
     pass
 
-def topological_ordering(G):
-    pass
+def topological_ordering(G: Graph):
+    order, in_count, ready = [], dict(), deque()
+
+    for v in G.vertices:
+        in_count[v] = G.in_degree(v)
+        if in_count == 0:   ready.append(v)
+
+    while len(ready) > 0:
+        u = ready.popleft()
+        order.append(u)
+
+        for child in G.neighbors(u):
+            in_count[child] -= 1
+            if in_count[child] == 0:    ready.append(child)
+    return order
 
 def bellman_ford(G):
     pass
