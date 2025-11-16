@@ -755,16 +755,16 @@ class Heap(BinaryTree):
         
         node.parent = node.left = node.right = None
 
-class MyNode:
-    def __init__(self, value, range, axis, parent = None, left = None, right = None):
-        self.value = value
-        self.parent = parent
-        self.left = left
-        self.right = right
-        self.range = range
-        self.axis = axis
+class KDTree:
+    class MyNode:
+        def __init__(self, value, range, axis, parent = None, left = None, right = None):
+            self.value = value
+            self.parent = parent
+            self.left = left
+            self.right = right
+            self.range = range
+            self.axis = axis
 
-class KD_Tree:
     def __init__(self, dataset):
         self.dataset = dataset
         self.max_depth = min(np.log2(dataset.shape[0]), dataset.shape[1])
@@ -863,3 +863,12 @@ class KD_Tree:
         recurse_traversal(self.tree)
         print(self.count)
         return self.dist
+
+class RedBlackTree:
+    pass
+
+class BTree:
+    pass
+
+class BpTree:
+    pass

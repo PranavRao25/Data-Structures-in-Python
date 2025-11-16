@@ -303,3 +303,6 @@ def a_star(G, u, v):
     heuristic = lambda u, v: np.abs(u - v)
     dist = lambda u, v: G.weight(u, v) + heuristic(u, v)
     return all_source_shortest_path(G, u, dist)
+
+class Trie:
+    pass
