@@ -754,4 +754,112 @@ class Heap(BinaryTree):
             node.left.parent = node.right
         
         node.parent = node.left = node.right = None
+
+class MyNode:
+    def __init__(self, value, range, axis, parent = None, left = None, right = None):
+        self.value = value
+        self.parent = parent
+        self.left = left
+        self.right = right
+        self.range = range
+        self.axis = axis
+
+class KD_Tree:
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.max_depth = min(np.log2(dataset.shape[0]), dataset.shape[1])
+        self.tree = None
+        self.distance = lambda x, y: np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y))
+
+    def _build(self, parent_node, points, axis):
+        # define the base case for the recursion
+        if axis > self.max_depth:
+            return
+
+        # to get the median point from the given points
+        points_list = np.asarray(points)
+        n = points_list.shape[0]
+        median_index = n // 2
+        partitioned_indices = np.argpartition(points[:, axis], median_index)
+        median_point_index = partitioned_indices[median_index]
         
+        # make the median as the root of the subtree
+        median_point = points[median_point_index]
+        median_point /= np.linalg.norm(median_point)
+        node = MyNode(value = median_point,
+                    range = [np.min(points[:, axis]), np.max(points[:, axis])],
+                    axis = axis, parent = parent_node
+                )
+
+        # divide the data according to the median point
+        left_indices = partitioned_indices[:median_index]
+        right_indices = partitioned_indices[median_index + 1:]
+
+        # recursively call _build for the left and right subtrees
+        left_points = points[left_indices]
+        if len(left_points) > 0:
+            left_node = self._build(node, left_points, axis + 1)
+            node.left = left_node
+        else:
+            node.left = None
+
+        right_points = points[right_indices]
+        if len(right_points) > 0:
+            right_node = self._build(node, right_points, axis + 1)
+            node.right = right_node
+        else:
+            node.right = None
+        
+        return node
+
+    def build(self):
+        axis = 0
+        self.tree = self._build(parent_node = None, points = self.dataset, axis = 0)
+
+    def is_leaf(self, node):
+        return node.left is None and node.right is None
+    
+    def get_nearest_neighbour(self, query):
+        def update_nearest(node):
+            self.nearest_node = node
+            self.nearest_distance = self.distance(node.value, query)
+        
+        def recurse_search(query, node, depth):
+            if depth == self.max_depth or self.is_leaf(node):
+                update_nearest(node)
+            
+            if self.distance(node.value, query) != 0:
+                if self.distance(node.value, query) < self.nearest_distance:
+                    update_nearest(node)
+                
+                if node.left:
+                    recurse_search(query, node.left, depth + 1)
+                    if self.distance(node.value, query) < self.nearest_distance:
+                        update_nearest(node)
+                
+                if node.right:
+                    recurse_search(query, node.right, depth + 1)
+                    if self.distance(node.value, query) < self.nearest_distance:
+                        update_nearest(node)
+
+        self.nearest_distance = np.inf
+        self.nearest_node = self.tree  # or None
+        recurse_search(query, self.tree, 0)
+        return self.nearest_node, self.nearest_distance
+    
+    def traversal(self):
+        def recurse_traversal(node):
+            if node:
+                if node.axis not in self.dist:
+                    self.dist[node.axis] = 1
+                else:
+                    self.dist[node.axis] += 1
+                self.count += 1
+                recurse_traversal(node.left)
+                recurse_traversal(node.right)
+        
+        self.count = 0
+        self.dist = {}
+        recurse_traversal(self.tree)
+        print(self.count)
+        return self.dist
