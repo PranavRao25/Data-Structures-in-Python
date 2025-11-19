@@ -1,6 +1,7 @@
 from collections import deque
 import math
 import random
+from typing import Optional
 
 class StackinArray:
     class SubStack:
@@ -69,34 +70,36 @@ class DoubleLinkedList:
     
     def insert_node(self, val, parent_index):
         if parent_index > self.length // 2:
-            temp = self.__tail
-            
-            while temp.previous != self.__tail:
-                if temp.index == parent_index:
-                    break
-                temp = temp.previous
-            node = self._Node(
-                element=val, index=parent_index+1,
-                next=temp.next, previous=temp
-                )
-            temp.next.previous = node
-            temp.next = node
-            if temp == self.__tail:
-                self.__tail, self.__head = node, node.next
+            if self.__tail is not None:
+                temp = self.__tail
+                
+                while temp.previous != self.__tail:
+                    if temp.index == parent_index:
+                        break
+                    temp = temp.previous
+                node = self._Node(
+                    element=val, index=parent_index+1,
+                    next=temp.next, previous=temp
+                    )
+                temp.next.previous = node
+                temp.next = node
+                if temp == self.__tail:
+                    self.__tail, self.__head = node, node.next
         else:
-            temp = self.__head
-            while temp.next != self.__head:
-                if temp.index == parent_index:
-                    break
-                temp = temp.next
-            node = self._Node(
-                element=val, index=parent_index+1,
-                next=temp.next, previous=temp
-                )
-            temp.next.previous = node
-            temp.next = node
-            if temp == self.__head:
-                self.__head, self.__tail = node, node.previous
+            if self.__head is not None:
+                temp = self.__head
+                while temp.next != self.__head:
+                    if temp.index == parent_index:
+                        break
+                    temp = temp.next
+                node = self._Node(
+                    element=val, index=parent_index+1,
+                    next=temp.next, previous=temp
+                    )
+                temp.next.previous = node
+                temp.next = node
+                if temp == self.__head:
+                    self.__head, self.__tail = node, node.previous
 
         self.length += 1
         return node.index
@@ -127,8 +130,8 @@ class DoubleLinkedList:
                 if temp.index == index or temp == self.__head:
                     break
                 temp = temp.previous
-            (temp.parent).next, (temp.next).parent = temp.next, temp.parent
-            temp.next, temp.parent = temp, temp
+            (temp.previous).next, (temp.next).previous = temp.next, temp.previous
+            temp.next, temp.previous = temp, temp
         else:
             temp = self.__head
 
@@ -136,8 +139,8 @@ class DoubleLinkedList:
                 if temp.index == index or temp == self.__tail:
                     break
                 temp = temp.next
-            (temp.parent).next, (temp.next).parent = temp.next, temp.parent
-            temp.next, temp.parent = temp, temp
+            (temp.previous).next, (temp.next).previous = temp.next, temp.previous
+            temp.next, temp.previous = temp, temp
 
 class Stack:
     min_size = -1
@@ -193,7 +196,7 @@ def reverse_list(L):
             break
     return rev
 
-def reverse_stack(S):
+def reverse_stack(S : Stack):
     # reverse the stack in place
     t1, t2 = Stack(), Stack()
 
@@ -216,8 +219,6 @@ def reverse_stack(S):
             break            
 
 def enumerate_permutations_stack(l):
-    permutations, stack = [], Stack()
-    
     """
     We are essentially going to parse the permutation tree
     Each node in the tree is a subset of the complete set of n numbers with the following property:
@@ -230,6 +231,7 @@ def enumerate_permutations_stack(l):
     Space Complexity using Stack is O(n2)
     """
 
+    permutations, stack = [], Stack()
     n = len(l)
     stack.push((
         [],  # current_partial_perms
@@ -409,7 +411,7 @@ class Node:
 
     def __init__(self, val):
         self.val = val
-        self.next = None
+        self.next : None | Node = None
 
 class LinkedList:
     def __init__(self, val):
@@ -468,7 +470,7 @@ def type_check(value):
     if not isinstance(value, int):
             raise TypeError("Only Integer Linked Lists allowed")
 
-class LinkedList(ListNode):
+class ListLinkedList(ListNode):
     def __init__(self, head_value):
         try:
             type_check(head_value)

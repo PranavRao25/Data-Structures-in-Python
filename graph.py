@@ -1,8 +1,7 @@
 from abc import abstractmethod, ABC
 from collections import deque
-import random
+from typing import Optional
 import numpy as np
-import math
 from union_find import UnionSet
 import heapq
 
@@ -28,7 +27,7 @@ class Edge:
         Defines an edge of a Graph
     """
 
-    def __init__(self, u, v, w):
+    def __init__(self, u, v, w=None):
         if not isinstance(u, Vertex):
             u = Vertex(u)
         if not isinstance(v, Vertex):
@@ -96,16 +95,16 @@ class AdjacencyStructure(ABC):
         pass
 
     @abstractmethod
-    def neighbors(self, v: Vertex):
-        pass
+    def neighbors(self, v: Vertex)-> list:
+        return []
 
     @abstractmethod
     def out_degree(self, v: Vertex):
-        pass
+        return 1
 
     @abstractmethod
     def in_degree(self, v: Vertex):
-        pass
+        return 1
 
 class AdjacencyList(AdjacencyStructure):
     """
@@ -140,18 +139,22 @@ class AdjacencyList(AdjacencyStructure):
     def remove_vertex(self, v : Vertex):
         if v not in self.map:   raise ValueError("Vertex doesn't exist")
         del self.map[v]
+
+        for u in self.map:
+            if v in self.map[u]:
+                self.map[u].pop(v)
     
-    def neighbors(self, v: Vertex):
+    def neighbors(self, v: Vertex) -> Optional[list]:
         if v not in self.map:   raise ValueError("Vertex doesn't exist")
-        else:   return self.map[v]
+        return self.map[v]
     
     def out_degree(self, v):
         if v not in self.map:   raise ValueError("Vertex doesn't exist")
-        else:   return len(self.map[v])
+        return len(self.map[v])
 
     def in_degree(self, v):
         if v not in self.map:   raise ValueError("Vertex doesn't exist")
-        else:   return len(1 for u in self.map if v in self.map[u])
+        return len([1 for u in self.map if v in self.map[u]])
 
 class AdjacencyMatrix(AdjacencyStructure):
     """
@@ -200,15 +203,18 @@ class AdjacencyMatrix(AdjacencyStructure):
 
     def neighbors(self, v : Vertex):
         if v not in self.vertices: raise Exception("Vertex doesn't exist")
-        return [self.vertices[i] for i in self.mat.where(self.mat[self.vertices.index(v), :] == 1)]
+        row_index = self.vertices.index(v)
+        return [self.vertices[i] for i in np.nonzero(self.mat[row_index, :])[0]]
     
     def out_degree(self, v):
         if v not in self.vertices: raise Exception("Vertex doesn't exist")
-        return len([self.vertices[i] for i in self.mat.where(self.mat[self.vertices.index(v), :] == 1)])
+        row_index = self.vertices.index(v)
+        return len([self.vertices[i] for i in np.nonzero(self.mat[row_index, :])[0]])
 
     def in_degree(self, v):
         if v not in self.vertices: raise Exception("Vertex doesn't exist")
-        return len([self.vertices[i] for i in self.mat.where(self.mat[:, self.vertices.index(v)] == 1)])
+        row_index = self.vertices.index(v)
+        return len([self.vertices[i] for i in np.nonzero(self.mat[row_index, :])[0]])
 
 class Graph:
     def __init__(self):
@@ -247,31 +253,33 @@ class Graph:
         self.adj_struct.add_edge(e)
 
     def delete_vertex(self, v):
-        self.vertices.remove(Vertex(v))
+        v = Vertex(v)
+        self.vertices.remove(v)
+        for u in self.adj_struct.neighbors(v):
+            # remove edges
+            self.adj_struct.remove_edge(Edge(u, v))
+
         self.adj_struct.remove_vertex(Vertex(v))
 
     def delete_edge(self, e: Edge):
         self.edges.remove(e)
         self.adj_struct.remove_edge(e)
-    
-    def neighbors(self, v):
-        if not isinstance(v, Vertex):   return self.adj_struct.neighbors(Vertex(v))
-        else:   return self.adj_struct.neighbors(v)
 
-def bellman_ford(G : Graph, u, dist):
+def bellman_ford(G : Graph, u : Vertex):
     """
         ASSP algo that handles detection of negative weight cycles
     """
 
     d = {Vertex(v): np.inf for v in G.vertices}  # approx dist
     d[Vertex(u)] = 0
-    prec = {Vertex(v): None for v in G.vertices}  # predecessor of each node
+    prec = dict() # predecessor of each node
 
     vertex_count = G.vertex_count()
     
     for _ in range(vertex_count - 1):  # limiting condition : iterate through all possible edges
         for e in G.edges:
-            u, v, w = e.endpoints(), e.weight
+            u, v = e.endpoints()
+            w = e.weight
             u, v = Vertex(u), Vertex(v)
 
             if d[u] + w < d[v]:  # relax / update the overestimation of the approx dist
@@ -279,14 +287,15 @@ def bellman_ford(G : Graph, u, dist):
                 prec[v] = u
     else:  # check for negative cycles
         for e in G.edges:
-            u, v, w = e.endpoints(), e.weight
+            u, v = e.endpoints()
+            w = e.weight
             u, v = Vertex(u), Vertex(v)
 
             if d[u] + w < d[v]:  # this is only possible if a negative edge exists
                 prec[v] = u
                 
                 # check for a cycle
-                visited = {Vertex(v):False for v in G.vertices()}
+                visited = {Vertex(v):False for v in G.vertices}
                 visited[v] = True
                 while not visited[u]:
                     visited[u] = True
@@ -300,7 +309,7 @@ def bellman_ford(G : Graph, u, dist):
                 raise Exception("Graph has negative cycle")
     return d
 
-def bfs(G : Graph, v, visit):
+def bfs(G : Graph, v : Vertex, visit):
     """
         Graph traversal / ASSP algo with no edge weights
     """
@@ -314,11 +323,11 @@ def bfs(G : Graph, v, visit):
         visited[G.vertices.index(Vertex(vertex))] = True  # add it to the pack of visited
         visit(v, vertex)
 
-        for u in G.neighbors(vertex):  # expand on the childern
+        for u in G.adj_struct.neighbors(vertex):  # expand on the childern
             if not visited[G.vertices.index(u)]:  # add new nodes to the boundary
                 q.append(u.value)  # ensures this node comes after all of the previous level nodes
 
-def dfs(G : Graph, v,  visit):
+def dfs(G : Graph, v : Vertex,  visit):
     """
         Graph traversal / ASSP algo with no edge weights
     """
@@ -332,7 +341,7 @@ def dfs(G : Graph, v,  visit):
         visited[G.vertices.index(Vertex(vertex))] = True  # add it to the visited region
         visit(v, vertex)
 
-        for u in G.neighbors(vertex):  # for all unexplored childern of the node, add it to the boundary
+        for u in G.adj_struct.neighbors(vertex):  # for all unexplored childern of the node, add it to the boundary
             if not visited[G.vertices.index(u)]:
                 q.appendleft(u.value)  # ensures this node is opened first
 
@@ -363,7 +372,8 @@ def floyd_warshall(G : Graph):
     d = {(Vertex(u), Vertex(v)): np.inf for u in G.vertices for v in G.vertices}
 
     for e in G.edges:
-        u, v, w = e.endpoints(), e.weight
+        u, v = e.endpoints()
+        w = e.weight
         u, v = Vertex(u), Vertex(v)
         d[u, v] = w  # each edge vertex has its weight as shortest path lengths
     
@@ -390,29 +400,30 @@ def topological_ordering(G: Graph):
         u = ready.popleft()  # get a vertex with no parents to add to the ordering (visited)
         order.append(u)
 
-        for child in G.neighbors(u):  # prune the vertex from the graph and decrease its childern's in_degree
+        for child in G.adj_struct.neighbors(u):  # prune the vertex from the graph and decrease its childern's in_degree
             in_count[child] -= 1
             if in_count[child] == 0:    ready.append(child)
     return order
 
-def all_source_shortest_path(G : Graph, u, dist):
+def all_source_shortest_path(G : Graph, u : Vertex, dist):
     d = {v: np.inf for v in G.vertices}  # approximated distance from the source
     d[Vertex(u)] = 0  # dist of vertex to itself is zero
 
-    queue = [], visited = dict()  # frontier and explored
+    queue: list[tuple[float, Vertex]] = []
+    visited = dict()  # frontier and explored
     heapq.heappush(queue, (d[Vertex(u)], Vertex(u)))
 
     while len(queue):
         d[Vertex(vertex)], vertex = heapq.heappop(queue)  # get a vertex out of the frontier
         visited[vertex] = True  # add it to explored
         
-        for child in G.neighbors(vertex):  # iterate through its childern
+        for child in G.adj_struct.neighbors(vertex):  # iterate through its childern
             if d[vertex] + dist(vertex, child) < d[child]:  # the approx dist must overestimate the real dist
                 d[child] = d[vertex] + dist(vertex, child)  # correct the approx dist to actual dist
-                heapq.heappush((d[child], child))  # add the child to frontier
+                heapq.heappush(queue, (d[child], child))  # add the child to frontier
     return d
 
-def djikstra(G : Graph, u):
+def djikstra(G : Graph, u : Vertex):
     """
         ASSP algo as a simple BFS extension for weighted graphs
         Cannot handle negative weights
@@ -421,7 +432,7 @@ def djikstra(G : Graph, u):
     dist = lambda u, v: G.weight(u, v)
     return all_source_shortest_path(G, u, dist)
 
-def a_star(G : Graph, u, v):
+def a_star(G : Graph, u : Vertex, v : Vertex):
     heuristic = lambda u, v: np.abs(u - v)
     dist = lambda u, v: G.weight(u, v) + heuristic(u, v)
     return all_source_shortest_path(G, u, dist)
@@ -445,10 +456,11 @@ def prims_mst(G : Graph):
     
     while not all(visited.values()):
         min_edge = cut_set[np.argmin(np.array([e.weight for e in cut_set]))]
-        u, v, weight = min_edge.endpoints(), min_edge.weight
+        u, v = min_edge.endpoints()
+        weight = min_edge.weight
         mst.insert_edge(u, v, weight)
         vertices.append(v)
-        visited[vertex] = True
+        visited[v] = True
         other_edges = [e for e in G.edges if e.point2 == v]
 
         # update cut_set
@@ -470,11 +482,36 @@ def kruskal_mst(G : Graph):
     edges.sort(key=lambda x: x[1])
 
     for e in edges:
-        u, v, w = e.endpoints(), e.weight
+        u, v =  e[0].endpoints()
+        w = e[1]
         if us.find(u) != us.find(v):  # if the two vertices belong in different components
             mst.insert_edge(u, v, w)  # add them to the mst
             us.union(us.find(u), us.find(v))
     return mst
+
+def johnson(G: Graph):
+    V, E = G.vertices, G.edges
+    aug_G = Graph()
+    for e in E:
+        u, v= e.endpoints()
+        w = e.weight
+        aug_G.insert_edge(u, v, w)
+    aug_G.insert_vertex(-1)
+    for v in V:
+        aug_G.insert_edge(-1, v, 0)
+    
+    d = bellman_ford(aug_G, u=Vertex(-1))
+    for e in G.edges:
+        u, v = e.endpoints()
+        w = e.weight
+
+        G.delete_edge(e)
+        G.insert_edge(u, v, e + d[u] - d[v])
+    
+    td = dict()
+    for u in G.vertices:
+        td[u] = djikstra(G, u)
+    return td
 
 class Trie(Graph):
     pass

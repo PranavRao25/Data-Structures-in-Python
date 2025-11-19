@@ -39,7 +39,7 @@ class BinaryTree:
         self._root = None
         self.__size = 0
     
-    def add_root(self, val: int)->int:
+    def add_root(self, val: int) -> Position:
         if self._root: raise Exception('Root already exists')
         self._root = self.node_to_position(self._Node(element=val))
         self.__size += 1
@@ -332,13 +332,18 @@ def reflection(T):
     return T_r
 
 def two_pointer_tree_traversal(T):
-    now, old = T.root(), None
+    now: BinaryTree._Node = T.root()
+    old = None
     
     if now is None: raise Exception("Tree Empty")
     while True:
-        print(now.val)
-        if T.leaf(now): now, old = now.parent, now
-        elif now.parent == old:   now, old = now.left, now
+        print(now.element)
+        if T.leaf(now):
+            now = now.parent
+            old = now
+        elif now.parent == old:
+            now = now.left
+            old = now
         elif now.left == old:   now, old = now.right, now
         elif now.right == old:  now, old = now.parent, now
         elif now is None:
@@ -681,18 +686,18 @@ def alpha_beta(T, node, depth, alpha, beta, maximising_player):
     if depth == 0:  return T.eval(node)
 
     if maximising_player:
-        max_eval = np.inf()
+        max_eval = np.inf
         for child in T.childern(node):
-            eval = minimax(T, child, depth - 1, alpha, beta, not maximising_player)
+            eval = alpha_beta(T, child, depth - 1, alpha, beta, not maximising_player)
             max_eval = max(eval, max_eval)
             alpha = max(alpha, eval)
             if beta <= alpha:
                 break
         return max_eval
     else:
-        min_eval = - np.inf()
+        min_eval = - np.inf
         for child in T.childern(node):
-            eval = minimax(T, child, depth - 1, alpha, beta, not maximising_player)
+            eval = alpha_beta(T, child, depth - 1, alpha, beta, not maximising_player)
             min_eval = max(eval, min_eval)
             beta = min(beta, eval)
             if beta <= alpha:
@@ -786,7 +791,7 @@ class KDTree:
         # make the median as the root of the subtree
         median_point = points[median_point_index]
         median_point /= np.linalg.norm(median_point)
-        node = MyNode(value = median_point,
+        node = self.MyNode(value = median_point,
                     range = [np.min(points[:, axis]), np.max(points[:, axis])],
                     axis = axis, parent = parent_node
                 )
